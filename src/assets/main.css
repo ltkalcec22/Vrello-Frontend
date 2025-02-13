@@ -5,8 +5,9 @@ body{
 }
 
 .main-container{
-  background-image: url('/background2.jpg');
-  height: 100vh;
+  background-color: #35939b;
+ background-image: url('/background2.jpg');
+  height: calc(100vh - 60px);
   background-size: cover;
   background-repeat: no-repeat;
   background-position: 50% 50%;
@@ -21,6 +22,7 @@ body{
   padding:0 1rem ;
   background-color: #35939b;
   color:white;
+  height: 60px;
 }
 .navigation-links{
   display:flex;
