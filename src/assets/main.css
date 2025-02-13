@@ -5,8 +5,8 @@ body{
 }
 
 .main-container{
-  background-color: #35939b;
- background-image: url('/background2.jpg');
+  background-color: #befaff;
+  background-image: url('../background2.jpg');
   height: calc(100vh - 60px);
   background-size: cover;
   background-repeat: no-repeat;

@@ -5,9 +5,13 @@
         <div class="status-dropdown">
           <label for="status-select">Status:</label>
           <select id="status-select" v-model="selectedStatus" @change="updateStatus">
-            <option value="to do">To do</option>
-            <option value="doing">Doing</option>
-            <option value="done">Done</option>
+            <!-- Opcije se generiraju iz liste svih listi -->
+            <option
+              v-for="(container, index) in containers"
+              :key="index"
+              :value="container.name">
+              {{ container.name }}
+            </option>
           </select>
         </div>
         <div class="task-details">
@@ -48,14 +52,19 @@
     containerName: {
       type: String,
       default: ''
+    },
+    // Primamo sve liste kako bismo mogli prikazati status opcije
+    containers: {
+      type: Array,
+      default: () => []
     }
   });
   
-  const emit = defineEmits(['close', 'update-status']);
+  const emit = defineEmits(['close', 'update-status', 'save-task']);
   
   const selectedStatus = ref(props.containerName);
   const description = ref(props.task.description || '');
-  const comments = ref([]);
+  const comments = ref(props.task.comments ? [...props.task.comments] : []);
   const newComment = ref('');
   
   watch(
@@ -63,14 +72,12 @@
     (newTask) => {
       if (newTask) {
         description.value = newTask.description || '';
+        // Ako su komentari definirani u tasku, kopiramo ih, inače postavljamo prazan niz
+        comments.value = newTask.comments ? [...newTask.comments] : [];
       }
     },
     { immediate: true }
   );
-  
-  const close = () => {
-    emit('close');
-  };
   
   const updateStatus = () => {
     emit('update-status', { taskText: props.task.text, newStatus: selectedStatus.value });
@@ -82,9 +89,20 @@
       newComment.value = '';
     }
   };
+  
+  // Kada zatvorimo modal, emitiramo save-task s ažuriranim podacima
+  const close = () => {
+    emit('save-task', { 
+      taskText: props.task.text, 
+      description: description.value, 
+      comments: comments.value 
+    });
+    emit('close');
+  };
   </script>
   
   <style scoped>
+  /* CSS ostaje nepromijenjen */
   .modal-overlay {
     position: fixed;
     top: 0;
@@ -111,6 +129,17 @@
     position: relative;
     background-color: #134851;
     padding: 20px;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 500px;
+    color: rgb(134, 180, 220);
+    border: 2px solid transparent;
+  }
+  .description-section textarea{
+    position: relative;
+    background-color: #134851;
+    padding: 20px;
+    margin-bottom:10px;
     border-radius: 8px;
     width: 80%;
     max-width: 500px;
@@ -148,40 +177,6 @@
     box-shadow: 0 5px 5px rgba(224, 222, 222, 0.1);
     color: rgb(134, 180, 220);
     border: 2px solid transparent;
-  }
-  .to-do-container {
-    margin-top: 10px;
-    margin-bottom: 10px;
-    position: relative;
-    background-color: #134851;
-    padding: 20px;
-    border-radius: 8px;
-    width: 80%;
-    max-width: 500px;
-    color: rgb(134, 180, 220);
-    border: 2px solid transparent;
-  }
-  .description-section {
-    margin-bottom: 10px;
-    position: relative;
-    background-color: #134851;
-    padding: 20px;
-    border-radius: 8px;
-    width: 80%;
-    max-width: 500px;
-    color: rgb(134, 180, 220);
-    border: 2px solid transparent;
-  }
-  .description-section textarea {
-    background-color: #0e1c2a;  
-    color: #ffffff;                
-    border: 1px solid #585abd;     
-    border-radius: 4px;        
-    padding: 10px;             
-    font-size: 14px;           
-    width: 100%;               
-    height: 80px;              
-    box-sizing: border-box;
   }
   .close-btn {
     position: absolute;
