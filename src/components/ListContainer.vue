@@ -2,10 +2,14 @@
     <div class="list-container">
       <h3>{{ container.name }}</h3>
       <ul 
-        :class="{ 'droppable': isDroppable }"
-        @dragover.prevent="handleDragOver"
-        @dragleave="handleDragLeave"
-        @drop="onDrop"
+      class="task-list"
+      :class="{ 'droppable': isDroppable }"
+      @dragover.prevent="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="onDrop"
+      @dragstart="onDragStart($event, 0, 0)"
+      @dragend="onDragEnd"
+      @click.stop="openTask(item)"
       >
         <li
           v-for="(item, index) in container.items"
@@ -17,7 +21,7 @@
           @dragend="onDragEnd"
           @click.stop="openTask(item)"
         >
-          <span :class="{ completed: item.completed }">{{ item.text }}</span>
+          <span :class="{ completed }">{{ item.text }}</span>
         </li>
       </ul>
   
@@ -27,7 +31,7 @@
   </template>
   
   <script setup>
-  import { defineProps, defineEmits, ref } from 'vue';
+import { defineProps, defineEmits, ref, computed } from 'vue';
   
   const props = defineProps({
     container: {
@@ -44,7 +48,10 @@
   
   const isDroppable = ref(false);
   const isDragging = ref(false);
-  
+
+  const completed = computed(() => {
+    return props.container.name === 'done';
+  })
   // Otvara skočni prozor s podacima o tasku
   const openTask = (task) => {
     emit('show-task', task, props.container.name);
@@ -130,6 +137,12 @@
     border-radius: 6px;
     cursor: grab;
     transition: background 0.2s ease, transform 0.2s ease;
+  }
+
+  .task-list {
+    padding: 2px 6px;
+    margin-bottom: 12px;
+    border-radius: 6px;
   }
   
   .task-item:active {

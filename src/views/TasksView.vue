@@ -34,8 +34,8 @@
     {
       name: 'to do',
       items: [
-        { text: 'Task one', completed: false, description: '' },
-        { text: 'Neki task', completed: false, description: '' }
+        { text: 'Task one', description: '' },
+        { text: 'Neki task', description: '' }
       ]
     },
     {
@@ -83,7 +83,6 @@
       }
     });
     if (task) {
-      task.completed = newStatus === 'done';
       const targetContainer = containersList.value.find(
         (container) => container.name.toLowerCase() === newStatus.toLowerCase()
       );
@@ -109,7 +108,6 @@
   const handleAddItem = (listIndex) => {
     const newItem = {
       text: `New Task ${containersList.value[listIndex].items.length + 1}`,
-      completed: false,
       description: ''
     };
     containersList.value[listIndex].items.push(newItem);

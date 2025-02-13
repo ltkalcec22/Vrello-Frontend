@@ -43,7 +43,7 @@
     },
     task: {
       type: Object,
-      default: () => ({ text: '', completed: false, description: '' })
+      default: () => ({ text: '', description: '' })
     },
     containerName: {
       type: String,
@@ -53,7 +53,7 @@
   
   const emit = defineEmits(['close', 'update-status']);
   
-  const selectedStatus = ref('to do');
+  const selectedStatus = ref(props.containerName);
   const description = ref(props.task.description || '');
   const comments = ref([]);
   const newComment = ref('');
