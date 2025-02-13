@@ -1,10 +1,10 @@
 <template>
-    <form style="display: flex; flex-direction: column; width: 300px;">
+    <form @submit.prevent="login" style="display: flex; flex-direction: column; width: 300px;">
     <label>Username</label>
-    <input type="text" style="width: 90%;"  placeholder="Enter your username"> 
+    <input v-model="username" type="text" style="width: 90%;"  placeholder="Enter your username"> 
 
     <label>Password</label>
-    <input type="password" style="width: 90%;" placeholder="Enter your password">
+    <input v-model="password" type="password" style="width: 90%;" placeholder="Enter your password">
 
     <button style="margin-top: 10px; width:98%">Log in</button>
 </form>
@@ -12,7 +12,16 @@
 </template>
 
 <script setup>
-   
+import { ref } from 'vue';
+import { useApiService } from '../stores/apiService';
+
+const apiService = useApiService();
+
+const username = ref('');
+const password = ref('')
+const login = () => {
+    apiService.login(username.value, password.value);
+}
 </script>
 
 <style scoped>
