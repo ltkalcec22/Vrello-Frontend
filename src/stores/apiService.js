@@ -1,16 +1,22 @@
+import router from '@/router';
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 export const useApiService = defineStore('apiService', () => {
     const token = ref(null);
 
+    const route = useRouter();
+
     const login = async (username, password) => {
         try {
-            const response = await fetch('http://localhost:3000/login', {
-                method: 'POST',
-                body: JSON.stringify({ username, password }),
-            });
-            token.value = await response.json();
+            // const response = await fetch('http://localhost:3000/login', {
+            //     method: 'POST',
+            //     body: JSON.stringify({ username, password }),
+            // });
+            // token.value = await response.json();
+            token.value = "some-token";
+            router.push('/tasks');
         } catch (error) {
             console.error(error);
         }
@@ -38,9 +44,26 @@ export const useApiService = defineStore('apiService', () => {
         }
     };
 
+    const submitTasks = async (tasks) => {
+        try {
+            const response = await fetch('http://localhost:3000/tasks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token.value}`,
+                },
+                body: JSON.stringify({ tasks }),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
     return {
         token,
         login,
-        signUp
+        signUp,
+        submitTasks
     }
 });

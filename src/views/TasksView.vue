@@ -62,6 +62,9 @@
   import { ref } from 'vue';
   import ListContainer from '../components/ListContainer.vue';
   import TaskWindow from '../components/TaskWindow.vue';
+  import { useApiService } from '../stores/apiService';
+
+  const apiService = useApiService();
   
   const containersList = ref([
     {
@@ -91,6 +94,7 @@
       });
       newListName.value = '';
     }
+    apiService.submitTasks(containersList.value)
   };
   
   const selectedTask = ref({ text: '', completed: false, description: '' });
@@ -140,6 +144,7 @@
       const removedTask = sourceContainer.items.splice(taskIndex, 1)[0];
       destinationContainer.items.push(removedTask);
     }
+    apiService.submitTasks(containersList.value)
   };
   
   const handleAddItem = (listIndex) => {
@@ -149,6 +154,7 @@
       comments: []  // Dodajemo prazan niz komentara
     };
     containersList.value[listIndex].items.push(newItem);
+    apiService.submitTasks(containersList.value)
   };
   
   // Ova funkcija ažurira opis i komentare u odgovarajućem tasku
