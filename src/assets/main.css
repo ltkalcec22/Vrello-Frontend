@@ -15,6 +15,11 @@ body{
   justify-content: center;
   align-items: center;
 }
+body.dark-mode .main-container {
+  background: url('/background3.jpg') no-repeat center center fixed !important;
+  background-size: cover !important;
+}
+
 .navigation{
   display:flex ;
   justify-content: space-between;

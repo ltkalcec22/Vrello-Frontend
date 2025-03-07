@@ -25,9 +25,9 @@ const logout = () => {
         <h1>Vrello</h1>
         <div class="navigation-links">
           <RouterLink to="/">Home</RouterLink>
-          <RouterLink to="/about">About</RouterLink>
+         
 
-          <button to="/logout" v-if="token" @click="logout">Log out</button>
+          <a to="/logout" v-if="token" @click="logout" >Log out</a>
 
           <template v-else>
             <RouterLink to="/login">Log in</RouterLink>
@@ -48,7 +48,7 @@ const logout = () => {
 
 <style scoped>
 nav button {
-  all: unset;
+  all: unset !important;
   cursor: pointer;
 }
 </style>
