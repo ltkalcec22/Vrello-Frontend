@@ -1,4 +1,3 @@
-// app.js
 const express = require('express');
 const initDb = require('./lib/db');
 const cors = require('cors');
@@ -6,27 +5,22 @@ const UsersService = require('./routes/users');
 const WorkspacesService = require('./routes/workspaces');
 const ContainersService = require('./routes/container'); // "u jednini"
 const TasksService = require('./routes/tasks');           // "novi servis za zadatke"
-const { expressjwt: jwt } = require('express-jwt');
+const authMiddleware = require('./middlewares'); // Ovaj middleware postavlja req.userId
 
 const secretKey = process.env.JWT_SECRET || 'mysecretkey';
-
-const checkJwt = jwt({
-  secret: secretKey,
-  algorithms: ['HS256']
-}).unless({ path: ['/login', '/signup'] });
 
 async function initWeb() {
   const dbPool = await initDb();
   const app = express();
   const port = 3000;
 
-  // Pohrani dbPool u app.locals ako ti zatreba pristup u routerima ili sl.
+  // Pohrani dbPool u app.locals za pristup u routerima i middlewareu
   app.locals.dbPool = dbPool;
 
   // Globalni middleware
   app.use(express.json());
   app.use(cors());
-  app.use(checkJwt);
+  app.use(authMiddleware); // Svi zahtjevi prolaze kroz authMiddleware, koji postavlja req.userId
 
   // Inicijalizacija servisa
   const usersService = new UsersService(dbPool);
@@ -58,20 +52,15 @@ async function initWeb() {
   // ----------------------------
   // WORKSPACES
   // ----------------------------
-
-  // Kreiranje workspacea (user_id dolazi iz parametra rute)
-  app.post('/users/:user_id/workspaces', async (req, res) => {
-    const { user_id } = req.params; // dohvat parametra iz URL-a
-    const { name } = req.body;      // npr. { name: "My Workspace" }
-
-    const result = await workspacesService.createWorkspace({ user_id, name });
+  app.post('/workspaces', async (req, res) => {
+    const { name } = req.body; // primjer: { name: "My Workspace" }
+    const result = await workspacesService.createWorkspace({ user_id: req.userId, name });
     if (result.error) {
       return res.status(400).json(result);
     }
     res.json(result);
   });
 
-  // Dohvaćanje workspacea po ID-u
   app.get('/workspaces/:id', async (req, res) => {
     const { id } = req.params;
     const result = await workspacesService.getWorkspaceById(id);
@@ -81,20 +70,21 @@ async function initWeb() {
     res.json(result);
   });
 
-  // Dohvaćanje svih workspaceova za određenog korisnika
-  app.get('/users/:user_id/workspaces', async (req, res) => {
-    const { user_id } = req.params;
-    const result = await workspacesService.getWorkspacesByUser(user_id);
+  app.get('/workspaces', async (req, res) => {
+    const result = await workspacesService.getWorkspacesByUser(req.userId);
     if (result.error) {
       return res.status(404).json(result);
     }
     res.json(result);
   });
 
-  // Ažuriranje workspacea
-  app.put('/users/:user_id/workspaces/:id', async (req, res) => {
+  app.put('/workspaces/:id', async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
+    const workspace = await workspacesService.getWorkspaceById(id);
+    if (workspace.error || workspace.workspace.user_id != req.userId) {
+      return res.status(403).json({ error: 'Unauthorized, workspace does not belong to user' });
+    }
     const result = await workspacesService.updateWorkspace(id, { name });
     if (result.error) {
       return res.status(400).json(result);
@@ -102,9 +92,12 @@ async function initWeb() {
     res.json(result);
   });
 
-  // Brisanje workspacea
-  app.delete('/users/:user_id/workspaces/:id', async (req, res) => {
+  app.delete('/workspaces/:id', async (req, res) => {
     const { id } = req.params;
+    const workspace = await workspacesService.getWorkspaceById(id);
+    if (workspace.error || workspace.workspace.user_id != req.userId) {
+      return res.status(403).json({ error: 'Unauthorized, workspace does not belong to user' });
+    }
     const result = await workspacesService.deleteWorkspace(id);
     if (result.error) {
       return res.status(404).json(result);
@@ -117,6 +110,10 @@ async function initWeb() {
   // ----------------------------
   app.post('/containers', async (req, res) => {
     const { workspace_id, name } = req.body;
+    const workspace = await workspacesService.getWorkspaceById(workspace_id);
+    if (workspace.error || workspace.workspace.user_id != req.userId) {
+      return res.status(403).json({ error: 'Unauthorized, workspace does not belong to user' });
+    }
     const result = await containerService.createContainer({ workspace_id, name });
     if (result.error) {
       return res.status(400).json(result);
@@ -133,9 +130,12 @@ async function initWeb() {
     res.json(result);
   });
 
-  // Dohvaćanje svih containera za određeni workspace
   app.get('/workspaces/:workspace_id/containers', async (req, res) => {
     const { workspace_id } = req.params;
+    const workspace = await workspacesService.getWorkspaceById(workspace_id);
+    if (workspace.error || workspace.workspace.user_id != req.userId) {
+      return res.status(403).json({ error: 'Unauthorized, workspace does not belong to user' });
+    }
     const result = await containerService.getContainersByWorkspace(workspace_id);
     if (result.error) {
       return res.status(404).json(result);
@@ -144,8 +144,12 @@ async function initWeb() {
   });
 
   app.put('/workspaces/:workspace_id/containers/:id', async (req, res) => {
-    const { id } = req.params;
+    const { workspace_id, id } = req.params;
     const { name } = req.body;
+    const workspace = await workspacesService.getWorkspaceById(workspace_id);
+    if (workspace.error || workspace.workspace.user_id != req.userId) {
+      return res.status(403).json({ error: 'Unauthorized, workspace does not belong to user' });
+    }
     const result = await containerService.updateContainer(id, { name });
     if (result.error) {
       return res.status(400).json(result);
@@ -154,7 +158,11 @@ async function initWeb() {
   });
 
   app.delete('/workspaces/:workspace_id/containers/:id', async (req, res) => {
-    const { id } = req.params;
+    const { workspace_id, id } = req.params;
+    const workspace = await workspacesService.getWorkspaceById(workspace_id);
+    if (workspace.error || workspace.workspace.user_id != req.userId) {
+      return res.status(403).json({ error: 'Unauthorized, workspace does not belong to user' });
+    }
     const result = await containerService.deleteContainer(id);
     if (result.error) {
       return res.status(404).json(result);
@@ -165,8 +173,6 @@ async function initWeb() {
   // ----------------------------
   // TASKS
   // ----------------------------
-
-  // Kreiranje zadatka
   app.post('/tasks', async (req, res) => {
     const { list_container_id, text, description, comments } = req.body;
     const result = await tasksService.createTask({ list_container_id, text, description, comments });
@@ -176,7 +182,6 @@ async function initWeb() {
     res.json(result);
   });
 
-  // Dohvaćanje zadatka po ID-u
   app.get('/tasks/:id', async (req, res) => {
     const { id } = req.params;
     const result = await tasksService.getTaskById(id);
@@ -186,7 +191,6 @@ async function initWeb() {
     res.json(result);
   });
 
-  // Dohvaćanje svih zadataka za određeni container
   app.get('/containers/:list_container_id/tasks', async (req, res) => {
     const { list_container_id } = req.params;
     const result = await tasksService.getTasksByContainer(list_container_id);
@@ -196,7 +200,6 @@ async function initWeb() {
     res.json(result);
   });
 
-  // Ažuriranje zadatka
   app.put('/containers/:list_container_id/tasks/:id', async (req, res) => {
     const { id } = req.params;
     const { text, description, comments } = req.body;
@@ -207,7 +210,6 @@ async function initWeb() {
     res.json(result);
   });
 
-  // Brisanje zadatka
   app.delete('/containers/:list_container_id/tasks/:id', async (req, res) => {
     const { id } = req.params;
     const result = await tasksService.deleteTask(id);
@@ -217,9 +219,52 @@ async function initWeb() {
     res.json(result);
   });
 
+  // ----------------------------
+  // KOMENTARI
+  // ----------------------------
+  app.post('/comments', async (req, res) => {
+    const { task_id, text } = req.body;
+    // Možete dodati dodatnu provjeru da li task pripada trenutačnom korisniku ako je potrebno
+    const result = await TasksService.createComment({ task_id, text, user_id: req.userId });
+    if (result.error) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  });
+
+  app.get('/tasks/:task_id/comments', async (req, res) => {
+    const { task_id } = req.params;
+    const result = await tasksService.getComments(task_id);
+    if (result.error) {
+      return res.status(404).json(result);
+    }
+    res.json(result);
+  });
+
+  app.put('/comments/:id', async (req, res) => {
+    const { id } = req.params;
+    const { text } = req.body;
+    // Opcionalna provjera: provjerite pripada li komentar trenutačnom korisniku
+    const result = await tasksService.updateComment(id, { text });
+    if (result.error) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  });
+
+  app.delete('/comments/:id', async (req, res) => {
+    const { id } = req.params;
+    // Opcionalna provjera: provjerite pripada li komentar trenutačnom korisniku
+    const result = await tasksService.deleteComment(id);
+    if (result.error) {
+      return res.status(404).json(result);
+    }
+    res.json(result);
+  });
+
   // Primjer zaštićenog endpointa
   app.get('/protected', (req, res) => {
-    res.json({ message: 'This is a protected endpoint', user: req.auth });
+    res.json({ message: 'This is a protected endpoint', user: req.userId });
   });
 
   // Custom error handler za express-jwt (vraća JSON, a ne HTML)
