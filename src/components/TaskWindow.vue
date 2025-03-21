@@ -1,5 +1,5 @@
 <template>
-    <div v-if="show" class="modal-overlay" @click.self="close">
+    <div class="modal-overlay" @click.self="close">
       <div class="modal-content">
         <button class="close-btn" @click="close">X</button>
         <div class="status-dropdown">
@@ -9,7 +9,7 @@
             <option
               v-for="(container, index) in containers"
               :key="index"
-              :value="container.name">
+              :value="container.id">
               {{ container.name }}
             </option>
           </select>
@@ -20,7 +20,7 @@
         </div>
         <div class="description-section">
           <h3>Description</h3>
-          <textarea v-model="description" placeholder="Enter description..."></textarea>
+          <textarea v-model="task.description" placeholder="Enter description..."></textarea>
         </div>
         <div class="comments-section">
           <h3>Comments</h3>
@@ -39,6 +39,7 @@
   
   <script setup>
   import { defineProps, defineEmits, ref, watch } from 'vue';
+  import { useApiService } from '@/stores/apiService';
   
   const props = defineProps({
     show: {
@@ -61,10 +62,12 @@
   });
   
   const emit = defineEmits(['close', 'update-status', 'save-task']);
+
+  const apiService = useApiService();
   
-  const selectedStatus = ref(props.containerName);
+  const selectedStatus = ref(props.task.list_container_id);
   const description = ref(props.task.description || '');
-  const comments = ref(props.task.comments ? [...props.task.comments] : []);
+  const comments = ref(props.task.comments);
   const newComment = ref('');
   
   watch(
@@ -79,8 +82,11 @@
     { immediate: true }
   );
   
-  const updateStatus = () => {
-    emit('update-status', { taskText: props.task.text, newStatus: selectedStatus.value });
+  const updateStatus = async () => {
+    props.task.comments = ""
+    await apiService.updateTask(props.task, selectedStatus.value);
+    await apiService.fetchTasks(selectedStatus.value)
+    await apiService.fetchTasks(props.task.list_container_id)
   };
   
   const addComment = () => {
@@ -92,11 +98,9 @@
   
   // Kada zatvorimo modal, emitiramo save-task s ažuriranim podacima
   const close = () => {
-    emit('save-task', { 
-      taskText: props.task.text, 
-      description: description.value, 
-      comments: comments.value 
-    });
+    props.task.comments = "";
+    // apiService.updateTask(props.task, selectedStatus)
+    // apiService.fetchContainers(props.task.list_container_id)
     emit('close');
   };
   </script>

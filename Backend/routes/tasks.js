@@ -9,6 +9,7 @@ class TasksService {
    * Očekuje objekt: { list_container_id, text, description, comments }
    */
   async createTask({ list_container_id, text, description, comments }) {
+    console.log(list_container_id, text)
     if (!list_container_id || !text) {
       return { error: true, message: 'Missing required fields (list_container_id, text)' };
     }
@@ -67,14 +68,14 @@ class TasksService {
    * Ažurira postojeći zadatak prema ID-u.
    * Očekuje objekt s podacima: { id, text, description, comments }
    */
-  async updateTask(id, { text, description, comments }) {
+  async updateTask(id, { text, description, comments, list_container_id }) {
     if (!text) {
       return { error: true, message: 'Missing required field (text)' };
     }
     try {
       const [result] = await this.dbPool.query(
-        'UPDATE tasks SET text = ?, description = ?, comments = ? WHERE id = ?',
-        [text, description, comments, id]
+        'UPDATE tasks SET text = ?, description = ?, comments = ?, list_container_id = ? WHERE id = ?',
+        [text, description, comments, list_container_id, id]
       );
       if (result.affectedRows === 0) {
         return { error: true, message: 'Task not found or no change made' };

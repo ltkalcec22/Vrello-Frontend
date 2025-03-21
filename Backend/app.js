@@ -202,8 +202,8 @@ async function initWeb() {
 
   app.put('/containers/:list_container_id/tasks/:id', async (req, res) => {
     const { id } = req.params;
-    const { text, description, comments } = req.body;
-    const result = await tasksService.updateTask(id, { text, description, comments });
+    const { text, description, comments, list_container_id } = req.body;
+    const result = await tasksService.updateTask(id, { text, description, comments, list_container_id });
     if (result.error) {
       return res.status(400).json(result);
     }

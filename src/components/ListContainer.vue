@@ -9,7 +9,7 @@
       @drop="onDrop"
     >
       <li
-        v-for="(item, index) in container.items"
+        v-for="(item, index) in container.tasks"
         :key="index"
         class="task-item"
         draggable="true"
@@ -22,7 +22,7 @@
         <!-- Gumbići za uređivanje i brisanje -->
         <div class="task-actions">
           <button class="edit-btn" @click.stop="editTask(item)">Edit</button>
-          <button class="delete-btn" @click.stop="deleteTask(index)">Delete</button>
+          <button class="delete-btn" @click.stop="deleteTask(item)">Delete</button>
         </div>
       </li>
     </ul>
@@ -34,6 +34,7 @@
 
 <script setup>
 import { defineProps, defineEmits, ref, computed } from 'vue';
+import { useApiService } from '@/stores/apiService';
 
 const props = defineProps({
   container: {
@@ -47,6 +48,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['add-item', 'show-task', 'task-dropped', 'submit-workspace']);
+
+const apiService = useApiService();
+apiService.fetchTasks(props.container.id)
 
 const isDroppable = ref(false);
 const isDragging = ref(false);
@@ -107,12 +111,15 @@ const editTask = (item) => {
   if(newText !== null && newText.trim() !== "") {
     item.text = newText;
   }
+  apiService.updateTask(item, item.list_container_id);
+  apiService.fetchTasks(item.list_container_id);
   emit('submit-workspace')
 };
 
 // Funkcija za brisanje zadatka
-const deleteTask = (index) => {
-  props.container.items.splice(index, 1);
+const deleteTask = async (task) => {
+  await apiService.deleteTask(task);
+  await apiService.fetchTasks(task.list_container_id)
   emit('submit-workspace')
 };
 </script>

@@ -46,7 +46,7 @@
   <!-- Workspace dropdown -->
   <div v-if="isWorkspaceDropdownVisible" class="workspace-dropdown">
     <ul>
-      <li v-for="(workspace, index) in workspaces" :key="index" @click="setActiveWorkspace(index)">
+      <li v-for="(workspace, index) in workspaces" :key="index" @click="setActiveWorkspace(workspace.id)">
         {{ workspace.name }}
       </li>
     </ul>
@@ -57,11 +57,11 @@
       <h2>Workspaces</h2>
       <ul>
         <li v-for="(workspace, index) in workspaces" :key="index" class="workspace-item">
-          <span @click="setActiveWorkspace(index)" :class="{ active: index === activeWorkspace }">
+          <span @click="setActiveWorkspace(workspace.id)" :class="{ active: workspace.id == activeWorkspace }">
             {{ workspace.name }}
           </span>
           <button class="edit-workspace" @click.stop="editWorkspace(index)">Edit</button>
-          <button class="delete-workspace" @click.stop="deleteWorkspace(index)">Delete</button>
+          <button class="delete-workspace" @click.stop="deleteWorkspace(workspace.id)">Delete</button>
         </li>
       </ul>
       <div class="add-workspace">
@@ -70,8 +70,9 @@
       </div>
     </aside>
     <main class="main-container">
+     
       <ListContainer
-        v-for="(container, i) in filteredContainersList"
+        v-for="(container, i) in containersList"
         :key="`container-${i}`"
         :container="container"
         :index="i"
@@ -82,7 +83,6 @@
       />
       <TaskWindow
         v-if="showTaskWindow && selectedTask"
-        :show="showTaskWindow"
         :task="selectedTask"
         :containerName="selectedContainer"
         :containers="containersList"
@@ -107,7 +107,7 @@ import { useApiService } from '@/stores/apiService';
 import { storeToRefs } from 'pinia';
 
 const apiService = useApiService();
-const { workspaces, userData } = storeToRefs(apiService);
+const { workspaces, containers } = storeToRefs(apiService);
 
 const activeWorkspace = ref(0);
 const newWorkspace = ref('');
@@ -136,17 +136,12 @@ const toggleDarkMode = () => {
 };
 
 // submitWorkspace – koristi userData.value.id i šalje pojedinačni workspace objekt
-const submitWorkspace = async (workspace) => {
-  if (!userData.value || !userData.value.id) {
-    console.error("User ID is missing");
-    return;
-  }
-  await apiService.submitWorkspace(userData.value.id, workspace);
+const submitWorkspace = async (workspaceName) => {
+  await apiService.submitWorkspace(workspaceName);
 };
 
 const resetBoard = () => {
   workspaces.value = [];
-  activeWorkspace.value = 0;
 };
 
 const exportData = () => {
@@ -158,11 +153,14 @@ const exportData = () => {
 // --- Filters dropdown funkcionalnost ---
 const isFiltersDropdownVisible = ref(false);
 const selectedFilters = ref([]);
-const containersList = computed(() =>
-  workspaces.value[activeWorkspace.value]?.containers
-    ? workspaces.value[activeWorkspace.value].containers
-    : []
+const containersList = computed(() =>{
+  if(containers.value.length){
+    return containers.value.filter((container) => container.workspace_id == activeWorkspace.value )
+  }
+  return [] 
+}
 );
+
 const allFilters = computed(() => {
   return [...new Set(containersList.value.map(container => container.name.toLowerCase()))];
 });
@@ -193,66 +191,46 @@ const isWorkspaceDropdownVisible = ref(false);
 const toggleWorkspaceDropdown = () => {
   isWorkspaceDropdownVisible.value = !isWorkspaceDropdownVisible.value;
 };
-const setActiveWorkspace = (index) => {
-  activeWorkspace.value = index;
+const setActiveWorkspace = (id) => {
+  apiService.fetchContainers(id)
+  activeWorkspace.value = id;
   isWorkspaceDropdownVisible.value = false;
 };
 
 // addWorkspace – dodaje novi workspace lokalno i poziva submitWorkspace s { name: workspaceName }
 const addWorkspace = () => {
-  const workspaceName = newWorkspace.value.trim();
-  if (workspaceName !== '') {
-    const newWs = {
-      name: workspaceName,
-      // Ovdje dodajemo privremene ID-jeve za containere; u stvarnoj aplikaciji ti će doći iz baze
-      containers: [
-        { id: Date.now(), name: 'to do', items: [] },
-        { id: Date.now() + 1, name: 'doing', items: [] },
-        { id: Date.now() + 2, name: 'done', items: [] }
-      ]
-    };
-    workspaces.value.push(newWs);
-    submitWorkspace({ name: workspaceName });
-    newWorkspace.value = '';
-  }
+  apiService.submitWorkspace(newWorkspace.value)
 };
 
 // handleAddItem – dodaje novi task (karticu) u određeni container
-const handleAddItem = (listIndex) => {
+const handleAddItem = async (listIndex) => {
   const container = containersList.value[listIndex];
   if (!container || !container.id) {
     console.error("Container id is missing for container at index", listIndex);
     return;
   }
+
   const newTask = {
     list_container_id: container.id,
-    text: `New Task ${container.items.length + 1}`,
+    text: `New task`,
     description: '',
-    comments: []
+    comments: ""
   };
-  container.items.push(newTask);
   // Pozivamo API endpoint za kreiranje zadatka
-  apiService.submitTasks(newTask);
+  await apiService.submitTasks(newTask);
+  await apiService.fetchTasks(container.id)
 };
 
-const addNewList = () => {
-  if (newListName.value.trim() !== '') {
-    containersList.value.push({
-      id: Date.now(),
-      name: newListName.value.toLowerCase(),
-      items: []
-    });
-    newListName.value = '';
-    console.log("New list added locally.");
-  }
+const addNewList = async () => {
+  await apiService.submitContainer(activeWorkspace.value, newListName.value)
 };
 
-const openTaskWindow = (task, containerName) => {
+const openTaskWindow = (task) => {
+  console.log('open task', task)
   if (!task.comments) {
     task.comments = [];
   }
   selectedTask.value = task;
-  selectedContainer.value = containerName;
   showTaskWindow.value = true;
 };
 
@@ -278,16 +256,12 @@ const moveTask = ({ taskText, newStatus }) => {
   }
 };
 
-const handleTaskDropped = (data) => {
-  const { task, sourceContainerIndex, taskIndex, destinationContainerIndex } = data;
-  if (sourceContainerIndex === destinationContainerIndex) return;
-  const sourceContainer = containersList.value[sourceContainerIndex];
-  const destinationContainer = containersList.value[destinationContainerIndex];
-  if (sourceContainer && destinationContainer) {
-    const removedTask = sourceContainer.items.splice(taskIndex, 1)[0];
-    destinationContainer.items.push(removedTask);
-  }
-  console.log("Task dropped; update local state only.");
+const handleTaskDropped = async (data) => {
+  const { task, destinationContainerIndex } = data;
+  const newListContainerId = containersList.value[destinationContainerIndex].id;
+
+  await apiService.updateTask(task, newListContainerId)
+  await apiService.fetchTasks(task.list_container_id);
 };
 
 const saveTask = ({ taskText, description, comments }) => {
@@ -308,26 +282,35 @@ const shareBoard = () => {
     .catch(() => alert('Failed to copy URL.'));
 };
 
-const editWorkspace = (index) => {
-  const currentName = workspaces.value[index].name;
-  const newName = prompt("Enter new name for workspace:", currentName);
+const editWorkspace = async (index) => {
+  const currentWorkspace = workspaces.value[index];
+  const newName = prompt("Enter new name for workspace:", currentWorkspace.name);
   if (newName !== null && newName.trim() !== "") {
-    workspaces.value[index].name = newName.trim();
+    await apiService.updateWorkspace(currentWorkspace.id, newName)
+    await apiService.fetchWorkspaces()
   }
   console.log("Workspace edited locally.");
 };
 
-const deleteWorkspace = (index) => {
+const deleteWorkspace = async (id) => {
   if (confirm("Are you sure you want to delete this workspace?")) {
-    workspaces.value.splice(index, 1);
+    await apiService.deleteWorkspace(id)
+    await apiService.fetchWorkspaces()
     if (activeWorkspace.value >= workspaces.value.length) {
-      activeWorkspace.value = 0;
+      if(workspaces.value.length){
+        activeWorkspace.value = workspaces.value[0].id
+      }
     }
   }
   console.log("Workspace deleted locally.");
 };
 
-apiService.fetchWorkspaces();
+apiService.fetchWorkspaces().then(()=>{
+  if(workspaces.value.length){
+    activeWorkspace.value = workspaces.value[0].id
+    apiService.fetchContainers(activeWorkspace.value)
+  }
+})
 </script>
 
 <style scoped>
@@ -491,6 +474,9 @@ body.dark-mode .filters-dropdown .filter-actions {
 .workspace-item span {
   flex: 1;
   cursor: pointer;
+}
+.active{
+  background-color: #555;
 }
 
 .edit-workspace,
