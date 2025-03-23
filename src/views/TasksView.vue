@@ -16,6 +16,8 @@
     </div>
   </div>
 
+
+  
   <!-- Settings dropdown s funkcijama -->
   <div v-if="isSettingsDropdownVisible" class="settings-dropdown">
     <ul>
@@ -53,8 +55,8 @@
   </div>
 
   <div class="app-container">
-    <aside class="sidebar">
-      <h2>Workspaces</h2>
+    <aside class="sidebar" v-if="!isMobile">
+      <h2 @click="removeIsMobile(false)">Workspaces</h2>
       <ul>
         <li v-for="(workspace, index) in workspaces" :key="index" class="workspace-item">
           <span @click="setActiveWorkspace(workspace.id)" :class="{ active: workspace.id == activeWorkspace }">
@@ -69,10 +71,13 @@
         <button @click="addWorkspace">Add workspace</button>
       </div>
     </aside>
+    <aside v-else>
+      <div @click="removeIsMobile(true)">gumb</div>
+    </aside>
     <main class="main-container">
      
       <ListContainer
-        v-for="(container, i) in containersList"
+        v-for="(container, i) in filteredContainersList"
         :key="`container-${i}`"
         :container="container"
         :index="i"
@@ -100,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted} from 'vue';
 import ListContainer from '../components/ListContainer.vue';
 import TaskWindow from '../components/TaskWindow.vue';
 import { useApiService } from '@/stores/apiService';
@@ -124,6 +129,8 @@ const openSettings = () => {
 const closeSettings = () => {
   isSettingsDropdownVisible.value = false;
 };
+
+
 
 const darkMode = ref(false);
 const toggleDarkMode = () => {
@@ -186,8 +193,27 @@ const resetFilters = () => {
   closeFilters();
 };
 
+onMounted(() => {
+  window.addEventListener('resize', handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
+const handleResize = () => {
+  windowWidth.value = window.innerWidth;
+}
+const removeIsMobile = (val) => {
+  forceDesktop.value = val;
+}
+const forceDesktop = ref(false);
+
 // --- Workspace dropdown i ostale funkcionalnosti ---
 const isWorkspaceDropdownVisible = ref(false);
+const isMobile = computed(() => !forceDesktop.value && windowWidth.value < 768);
+
+const windowWidth = ref(window.innerWidth);
+
 const toggleWorkspaceDropdown = () => {
   isWorkspaceDropdownVisible.value = !isWorkspaceDropdownVisible.value;
 };
@@ -444,7 +470,7 @@ body.dark-mode .filters-dropdown .filter-actions {
   color: rgb(86, 137, 169);
   padding: 20px;
   box-shadow: 0 5px 10px rgba(0,0,0,0.1);
-  height: calc(100vh - 173px);
+  height: 100%;
 }
 
 .sidebar h2 {
@@ -471,12 +497,16 @@ body.dark-mode .filters-dropdown .filter-actions {
   margin-bottom: 5px;
 }
 
+.workspace-item:has(> span.active) {
+  background-color: #5a646a;
+  color: #fff;
+  border-radius: 5px;
+}
+
+
 .workspace-item span {
   flex: 1;
   cursor: pointer;
-}
-.active{
-  background-color: #555;
 }
 
 .edit-workspace,
@@ -527,7 +557,7 @@ body.dark-mode .filters-dropdown .filter-actions {
 .main-container {
   background-color: #33656a;
   width: 100%;
-  height: calc(100vh - 173px);
+  min-height: calc(100vh - 173px);
   position: relative;
   display: flex;
   flex-wrap: wrap;
